@@ -1,0 +1,9 @@
+dataset_name: 'MCND'
+
+data_dir: '/home/cmcc/went/data/mcnd'
+dataset_image_size: 128 # original data size
+input_channels: 3
+
+# often the same
+num_classes: 8
+output_dim: 8

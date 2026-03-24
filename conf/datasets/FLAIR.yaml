@@ -1,0 +1,6 @@
+dataset_name: 'FLAIR'
+data_dir: '/data/zqy/FLAIR'
+
+num_classes: 10
+input_channels: 3
+dataset_image_size: 128

@@ -1,0 +1,11 @@
+
+algorithm_name: 'SymmetricCE'
+median_agg: True
+local_epochs: 1
+alpha: 0.1
+beta: 1.0
+num_classes: 10
+
+loss_functions:
+  symmetricce: 1.0
+

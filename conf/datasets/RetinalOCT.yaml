@@ -1,0 +1,9 @@
+dataset_name: 'RetinalOCT'
+
+data_dir: '/data/BIDE/retinal-oct-c8/3/RetinalOCT_Dataset/RetinalOCT_Dataset'
+dataset_image_size: 224 # original data size
+input_channels: 1
+
+# often the same
+num_classes: 8
+output_dim: 8

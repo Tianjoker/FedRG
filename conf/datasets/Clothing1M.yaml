@@ -1,0 +1,15 @@
+dataset_name: 'Clothing1M'
+
+# 图像大小，Clothing1M 原始分辨率较大，通常裁剪为 224×224
+image_resize: 224
+dataset_image_size: 224
+
+# 数据路径：保持你刚刚解压的路径
+data_dir: '/data/BIDE/Clothing1M/full_data/Clothing1M/clothing1M'
+
+# RGB 图像
+input_channels: 3
+
+# Clothing1M 一共有 14 类（从 0 到 13）
+num_classes: 14
+output_dim: 14

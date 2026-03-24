@@ -1,0 +1,10 @@
+
+
+algorithm_name: 'FedAvg'
+local_epochs: 1
+
+loss_functions:
+  cross_entropy: 1.0
+
+ema_decay: 0.9
+

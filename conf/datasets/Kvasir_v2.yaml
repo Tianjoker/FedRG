@@ -1,0 +1,9 @@
+dataset_name: 'Kvasir_v2'
+
+data_dir: '/data/BIDE/Kvasir'
+dataset_image_size: 256 # original data size
+input_channels: 3
+
+# often the same
+num_classes: 8
+output_dim: 8
