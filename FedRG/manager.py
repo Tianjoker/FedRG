@@ -129,13 +129,11 @@ class TCFNLLManager(object):
     
     def train(self):
 
-
-        #原版的就只有一个set_random  改版的会在2 3 阶段新设置random以保证复现性
         set_random(self.args.train_seed)
         criterion = torch.nn.CrossEntropyLoss(reduction='none')
 
         import os
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 当前文件上两级目录: IFNLL/
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         warm_model_dir = os.path.join(BASE_DIR, "checkpoints-no-projector", self.args.algorithms.algorithm_name)
         # print(warm_model_dir)
         cotrain_model_dir = os.path.join(BASE_DIR, "checkpoints-250", self.args.algorithms.algorithm_name)
@@ -147,14 +145,12 @@ class TCFNLLManager(object):
         client_selection_cache = load_client_selection_cached()
         print(client_selection_cache)
 
-        logging.info("---------------------First Stage- 表征暖启----------------------")
+        logging.info("---------------------First Stage-----------------------")
         if self.args.algorithms.use_cache_warmmodel:
             logging.info(f"检测到warm阶段模型，直接加载并跳过warm阶段: {warm_model_path}")
             # 加载模型参数到server
             state_dict = torch.load(warm_model_path, map_location=self.server.device)
             self.server.set_model_params(state_dict)
-
-            # 同步一下所有客户端的数据      正式实验时 这个最好放到限免 不在if里
             for num, client_index in enumerate(range(self.args.client_number)):
                 download_info = self.server.download_info()
                 # selected clients parallel running the following steps.
@@ -175,114 +171,15 @@ class TCFNLLManager(object):
                 agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
                 self.server.aggregation(round,agg=agg)
                 self.server.test_server(round)
-            # warm阶段结束后保存模型
+
             # self.server.save_model()
 
 
 
 
-        # logging.info("---------------------单独训练分类头----------------------")
-        # for round in tqdm(range(self.args.algorithms.classfier_round), desc='单独训练分类头 Communication Round'):
-        #     download_info = self.server.download_info()
-        #     # client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #     #     self.args.client_number,
-        #     #     self.args.algorithms.selected_num)
-        #     client_indexes=[1]
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.train_classfier_traing_round(round, client_indexes, download_info)
-        #     agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #     self.server.aggregation(round, agg=agg)
-        #     self.server.test_server(round)
-        #
-        # logging.info("---------------------簇中心优化 无状态转移矩阵----------------------")
-        # for round in tqdm(range(self.args.algorithms.sce_round), desc='with out T'):
-        #     download_info = self.server.download_info()
-        #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #         self.args.client_number,
-        #         self.args.algorithms.selected_num)
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.train_cuxin_round(round, client_indexes, download_info)
-        #
-        #     agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #     self.server.aggregation(round, agg=agg)
-        #     self.server.test_server(round)
-
-        # for round in tqdm(range(self.args.algorithms.sce_round), desc='all sce Round'):
-        #     download_info = self.server.download_info()
-        #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #         self.args.client_number,
-        #         self.args.algorithms.selected_num)
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.train_sce_round(round, client_indexes, download_info)
-        #     agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #     self.server.aggregation(round,agg=agg)
-        #     self.server.test_server(round)
-
-        # for round in tqdm(range(self.args.algorithms.cotraining_round), desc='单独训练分类头 Communication Round'):
-        #     download_info = self.server.download_info()
-        #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #         self.args.client_number,
-        #         self.args.algorithms.selected_num)
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.train_classfier_traing_round(round, client_indexes, download_info)
-        #     agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #     self.server.aggregation(round, agg=agg)
-        #     self.server.test_server(round)
-
-        # logging.info("---------------------不考虑对比学习的第一阶段 更新backbone和分类头150round----------------------")
-        # for round in tqdm(range(self.args.algorithms.warm_round), desc='warm_without_cl Communication Round'):
-        #     download_info = self.server.download_info()
-        #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #         self.args.client_number,
-        #         self.args.algorithms.selected_num)
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.train_cotraing_round_without_contrastive(round, client_indexes, download_info)
-        #     agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #     self.server.aggregation(round, agg=agg)
-        #     self.server.test_server(round)
-
-        # logging.info("---------------------Second Stage- co-training----------------------")
-        # if self.args.algorithms.use_cache_cotrainmodel:
-        #     logging.info(f"检测到warm+cotraining阶段模型，直接加载并跳过: {cotrain_model_path}")
-        #     # 加载模型参数到server
-        #     state_dict = torch.load(cotrain_model_path, map_location=self.server.device)
-        #     self.server.set_model_params(state_dict)
-        #     # 同步一下所有客户端的数据      正式实验时 这个最好放到限免 不在if里
-        #     for num, client_index in enumerate(range(self.args.client_number)):
-        #         download_info = self.server.download_info()
-        #         # selected clients parallel running the following steps.
-        #         client: TCFNLLClient = self.clients_dict[client_index]
-        #         client.client_update_local_info(download_info)
-        # else:
-        #     # set_random(self.args.train_seed + self.args.algorithms.warm_round)
-        #     for round in tqdm(range(self.args.algorithms.cotraining_round), desc='CO-training Communication Round'):
-        #         download_info = self.server.download_info()
-        #         if not self.args.algorithms.use_cache_warmmodel:
-        #             client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #                 self.args.client_number,
-        #                 self.args.algorithms.selected_num)
-        #         else:
-        #             client_indexes = client_selection_cache.get("co-training", {}).get(f"round_{round}", [])
-        #         # if self.args.algorithms.save_selection:
-        #         #     _save_client_selection(stage="co-training", round_idx=round, client_indexes=client_indexes)
-        #         logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #         self.train_cotraing_round(round, client_indexes, download_info)
-        #         agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
-        #         self.server.aggregation(round, agg=agg)
-        #         self.server.test_server(round)
-        #     # self.server.save_model()
 
 
-        # logging.info("---------------------relabel----------------------")
-        # for round in tqdm(range(1), desc='relable'):
-        #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-        #         self.args.client_number,
-        #         self.args.client_number)
-        #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-        #     self.relable_round(round, client_indexes)
-
-        logging.info("---------------------Third Stage- fine-tune----------------------")
-        # set_random(self.args.train_seed + self.args.algorithms.warm_round+self.args.algorithms.cotraining_round)
+        logging.info("---------------------Secone Stage----------------------")
         for round in tqdm(range(self.args.algorithms.finetune_round), desc='Fine-tune Communication Round'):
             download_info = self.server.download_info()
             if not self.args.algorithms.use_cache_warmmodel:
@@ -298,13 +195,6 @@ class TCFNLLManager(object):
             agg = self.args.algorithms.aggregator if hasattr(self.args.algorithms, 'aggregator') else "general"
             self.server.aggregation(round, agg=agg)
             self.server.test_server(round)
-
-            # if round == 50:
-            #     client_indexes = self.client_sampling(  # 每一轮Sample全部client
-            #         self.args.client_number,
-            #         self.args.client_number)
-            #     logging.info("This Round {} the sampled clients is {} ".format(round, client_indexes))
-            #     self.relable_round(round, client_indexes)
 
 
     def train_locally_per_round(self, round, selected_clients, download_info):

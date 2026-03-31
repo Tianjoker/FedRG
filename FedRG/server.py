@@ -81,18 +81,6 @@ class TCFNLLServer(object):
                 metric_tracker.update(outputs=outputs, targets=targets)
         results = metric_tracker.compute()
 
-        if round_idx==249:
-            visualize_spherical_semantics(
-                unsup_model=self.model.unsup_model,  # 你的自监督 backbone
-                dataloader=testloader,  # 迭代 (X, X_aug, y_obs, y_true)
-                device=self.device,
-                save_dir="viz_outs_249",
-                num_classes=10,  # 或你数据集的类别数
-                K=20,  # None=>用 num_classes；或者 K='auto'
-                sample_limit=None,  # 如需加速可设一个上限
-                random_state=0
-            )
-
         # # 检查全局模型参数的均值和标准差
         # total_mean = 0
         # total_std = 0

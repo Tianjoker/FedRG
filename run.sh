@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定义要运行的算法列表
-algorithms=( "fedelc" "fedprox" "symmetricCE" "fedinit" "coteaching" "scaffold" "fedlesams" "fednoro" "moon" "fedLSR" "fedavg" "tcfnll" )
+algorithms=( "fedavg" "tcfnll" )
 
 
 # 总 GPU 数（A100 八卡）

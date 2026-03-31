@@ -5,13 +5,10 @@ local_epochs: 1
 
 semi_model: "SimCLR"
 
-dynamic_pi_thread: True
-
 loss_functions:
   symmetricce: 1.0
 
 ema_decay: 0.9
-
 
 #simclr + vicreg
 vicreg: false
@@ -23,10 +20,10 @@ warm_agg_include_keys: ["unsup_model"]
 finetune_agg_include_keys: ["classifier_head","unsup_model"] # ["T" "classifier_head","unsup_model"]
 cuxin_include_keys: ["classifier_head","unsup_model"]
 
-warm_round: 2       # Stage I
-finetune_round: 20  # Stage II
+warm_round: 1       # Stage I
+finetune_round: 1  # Stage II
 
-selected_num: 5
+selected_num: 2
 
 use_cache_warmmodel: False
 gmm_thread: 0.5

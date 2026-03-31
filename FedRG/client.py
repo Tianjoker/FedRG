@@ -577,8 +577,6 @@ class TCFNLLClient(object):
 
         if self.args.record:
             record(record_tool=self.args.record_tool, scalar=scalar_dict, step=round)
-
-        print('SemiFed:{}_{}_unlabeled_instanceDis_loss{}'.format(self.role, self.index,instanceDis_loss_avg.avg))
         self.model.cpu()
 
     def entropy(self,p, eps=1e-12):
@@ -626,17 +624,6 @@ class TCFNLLClient(object):
             {'params': [self.model.T], 'weight_decay': 0.0}
         ], lr=0.01, momentum=0.9)
 
-        # optimizer = torch.optim.SGD([
-        #     {'params': self.model.unsup_model.parameters(), 'weight_decay': 5e-4},
-        #     {'params': self.model.classifier_head.parameters(), 'weight_decay': 5e-4},
-        #     {'params': [self.model.T], 'weight_decay': 0.0}
-        # ], lr=0.01, momentum=0.9)
-
-        # optimizer = torch.optim.SGD([
-        #     {'params': self.model.unsup_model.parameters(), 'lr': 0.005, 'weight_decay': 5e-4},
-        #     {'params': self.model.classifier_head.parameters(), 'lr': 0.01, 'weight_decay': 5e-4},
-        #     {'params': [self.model.T], 'lr': 0.01, 'weight_decay': 0.0}
-        # ], momentum=0.9)
 
         ce_meter = AverageMeter()  #
         clean_loss_meter = AverageMeter()
@@ -701,14 +688,10 @@ class TCFNLLClient(object):
         M_map, alpha_dp, alpha_M = mix['M'], mix['alpha_dp'], mix['alpha_M']
         buf = mix['buf']
 
-        # Lyapunov 温度 / 窗口（尺度参数，不是阈值）
-        # beta_temp = getattr(self.args.algorithms, 'lyap_beta', 5.0)
-        # lyap_momentum = getattr(self.args.algorithms, 'lyap_momentum', 0.6)  # 对 λ 的 EMA
         proto_momentum = getattr(self.args.algorithms, 'proto_momentum', 0.1)  # 对 MU/M 的 EMA
         # ----------------------- 训练循环 -----------------------
         for epoch in range(train_epoch):
             logging.info('=> Training Epoch #%d, LR=%.4f' % (epoch, optimizer.param_groups[0]['lr']))
-            offset = 0
             C = self.model.T.size(0)
             T_true = torch.zeros(C, C, dtype=torch.float32, device=device)
 
@@ -719,8 +702,6 @@ class TCFNLLClient(object):
                 bs = X_train.size(0)
                 if bs==1:
                     continue
-                idx_tensor = torch.arange(offset, offset + bs, device=device)
-                offset += bs
                 optimizer.zero_grad()
 
                 h1 = self.model.unsup_model.encoder_forward(X_train)  # [B, 512]
@@ -731,7 +712,6 @@ class TCFNLLClient(object):
                 logits = self.model.classifier_head(h1)
                 p = torch.softmax(logits, dim=1)
 
-
                 logit_g = vmf_logits(z, MU, KAPPA) + torch.log(BETA + 1e-12)  # [B, L]
                 logit_bg = torch.full((bs, 1), torch.log(PI0 + 1e-12), device=device)  # 背景
                 logits_mix = torch.cat([logit_bg, logit_g], dim=1)  # [B, 1+L]
@@ -739,7 +719,6 @@ class TCFNLLClient(object):
                 gamma_bg = post[:, :1]  # [B, 1]
                 gamma = post[:, 1:]  # [B, L]  几何责任
 
-                # ------- (B) 增强稳定性：观测精度 r_i （无阈值） -------
                 R = ((z1 + z2) / 2.0).norm(p=2, dim=1).clamp(1e-6, 1 - 1e-6)
                 kappa_aug = Ainv_from_R(R, d)  # [B]
                 with torch.no_grad():
@@ -748,7 +727,6 @@ class TCFNLLClient(object):
                     else:
                         self._sbrf_kappa_median = 0.9 * self._sbrf_kappa_median + 0.1 * torch.median(kappa_aug).detach()
                 r_i = torch.clamp(kappa_aug / (self._sbrf_kappa_median + 1e-8), 0.2, 2.0)  # [B]
-
 
                 logit_g_tilde = (vmf_logits(z, MU, KAPPA) * r_i.unsqueeze(1)) + torch.log(BETA + 1e-12)
                 logits_mix_tilde = torch.cat([logit_bg, logit_g_tilde], dim=1)
@@ -779,7 +757,6 @@ class TCFNLLClient(object):
                 clean_comp = np.argmin(means)
                 P_clean_gmm = torch.from_numpy(probs[:, clean_comp]).to(self.device).float().detach()
 
-
                 clean_mask = (P_clean_gmm >= self.args.algorithms.gmm_thread)
                 noisy_mask = ~clean_mask
                 m_clean = clean_mask.float().detach()
@@ -793,7 +770,6 @@ class TCFNLLClient(object):
                 sce_per = sce.forward(logits, y_obs).mean()  # [B]
                 loss_clean = sce_per
 
-
                 T_dev = self.model.T
                 p_noisy = torch.matmul(p, T_dev)  # [B, C]
                 loss_noisy_per = nll(torch.log(p_noisy + 1e-12), y_obs)  # [B]
@@ -804,31 +780,21 @@ class TCFNLLClient(object):
                 loss.backward()
                 optimizer.step()
 
-
                 with torch.no_grad():
                     self.model.T.data = self.model.T.data.clamp_min(1e-6)
                     self.model.T.data /= self.model.T.data.sum(dim=1, keepdim=True)
 
                 with torch.no_grad():
                     ent = -(gamma_tilde * (gamma_tilde + 1e-12).log()).sum(dim=1).mean()
-                    if (batch_idx + 1) % 10 == 0:
-                        print(f"[diag] entropy(gamma_tilde)={ent.item():.3f}, "
-                              f"beta min/max={BETA.min():.4f}/{BETA.max():.4f}, "
-                              f"kappa min/med/max={KAPPA.min():.2f}/{KAPPA.median():.2f}/{KAPPA.max():.2f}, "
-                              f"pi0={PI0.item():.4f}")
-
-
                     buf['sum_vec'] += torch.matmul(gamma_tilde.t(), z)  # [L,d] += [L,B]@[B,d]
                     buf['count'] += torch.sum(gamma_tilde, dim=0)  # [L]
                     buf['bg_count'] += torch.sum(gamma_bg_tilde)
-
 
                     if m_clean.sum() > 0:
                         N_cg_batch = torch.zeros_like(M_map)  # [C,L]
                         gamma_clean = gamma_tilde * m_clean.unsqueeze(1)
                         N_cg_batch.index_add_(0, y_obs, gamma_clean)
                         buf['N_cg'] += N_cg_batch
-
 
                     if (batch_idx + 1) % getattr(self.args.algorithms, 'mix_update_interval', 1) == 0:
                         # MU
@@ -875,7 +841,6 @@ class TCFNLLClient(object):
                 self.model.T.data.clamp_(min=1e-6)
                 self.model.T.data /= self.model.T.data.sum(dim=1, keepdim=True)
 
-        print("map{}".format(M_map))
         scalar_dict = {
             f'{self.role}:{self.index} finetune loss': ce_meter.avg,
             f'{self.role}:{self.index} clean loss': clean_loss_meter.avg        }
